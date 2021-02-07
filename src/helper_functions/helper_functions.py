@@ -11,6 +11,8 @@ import torch
 from PIL import ImageDraw
 from pycocotools.coco import COCO
 
+import logging
+import logging.handlers
 
 def parse_args(parser):
     # parsing args
@@ -126,6 +128,9 @@ class CocoDetection(datasets.coco.CocoDetection):
         target = output
 
         path = coco.loadImgs(img_id)[0]['file_name']
+        # import ipdb; ipdb.set_trace()
+        path_list = path.split('_')
+        path = os.path.join(path_list[1], path)
         img = Image.open(os.path.join(self.root, path)).convert('RGB')
         if self.transform is not None:
             img = self.transform(img)
@@ -195,3 +200,78 @@ def add_weight_decay(model, weight_decay=1e-4, skip_list=()):
     return [
         {'params': no_decay, 'weight_decay': 0.},
         {'params': decay, 'weight_decay': weight_decay}]
+
+
+class FormatterNoInfo(logging.Formatter):
+    def __init__(self, fmt='%(levelname)s: %(message)s'):
+        logging.Formatter.__init__(self, fmt)
+
+    def format(self, record):
+        if record.levelno == logging.INFO:
+            return str(record.getMessage())
+        return logging.Formatter.format(self, record)
+
+def setup_default_logging(default_level=logging.INFO, log_path=''):
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(FormatterNoInfo())
+    logging.root.addHandler(console_handler)
+    logging.root.setLevel(default_level)
+    if log_path:
+        file_handler = logging.handlers.RotatingFileHandler(log_path, maxBytes=(1024 ** 2 * 2), backupCount=3)
+        file_formatter = logging.Formatter("%(asctime)s - %(name)20s: [%(levelname)8s] - %(message)s")
+        file_handler.setFormatter(file_formatter)
+        logging.root.addHandler(file_handler)
+
+def voc_ap(rec, prec, true_num):
+    mrec = np.concatenate(([0.], rec, [1.]))
+    mpre = np.concatenate(([0.], prec, [0.]))
+    for i in range(mpre.size - 1, 0, -1):
+        mpre[i - 1] = np.maximum(mpre[i - 1], mpre[i])
+    i = np.where(mrec[1:] != mrec[:-1])[0]
+    ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])
+    return ap
+
+def sl_mAP(imagessetfilelist, num):
+    if isinstance(imagessetfilelist, str):
+        imagessetfilelist = [imagessetfilelist]
+    lines = []
+    for imagessetfile in imagessetfilelist:
+        with open(imagessetfile, 'r') as f:
+            lines.extend(f.readlines())
+    
+    seg = np.array([x.strip().split(' ') for x in lines]).astype(float)
+    gt_label = seg[:,num:].astype(np.int32)
+    num_target = np.sum(gt_label, axis=1, keepdims = True)
+    threshold = 1 / (num_target+1e-6)
+
+    predict_result = seg[:,0:num] > threshold
+
+
+    sample_num = len(gt_label)
+    class_num = num
+    tp = np.zeros(sample_num)
+    fp = np.zeros(sample_num)
+    aps = []
+    per_class_recall = []
+
+    for class_id in range(class_num):
+        confidence = seg[:,class_id]
+        sorted_ind = np.argsort(-confidence)
+        sorted_scores = np.sort(-confidence)
+        sorted_label = [gt_label[x][class_id] for x in sorted_ind]
+
+        for i in range(sample_num):
+            tp[i] = (sorted_label[i]>0)
+            fp[i] = (sorted_label[i]<=0)
+        true_num = 0
+        true_num = sum(tp)
+        fp = np.cumsum(fp)
+        tp = np.cumsum(tp)
+        rec = tp / float(true_num)
+        prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
+        ap = voc_ap(rec, prec, true_num)
+        aps += [ap]
+
+    np.set_printoptions(precision=6, suppress=True)
+    mAP = np.mean(aps)
+    return mAP

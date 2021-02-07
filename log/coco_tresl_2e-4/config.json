@@ -1,0 +1,19 @@
+{
+  "data": "/data/shilong/data/coco14",
+  "lr": 0.0002,
+  "model_name": "tresnet_l",
+  "model_path": "/data/shilong/data/pretrained/tresnet_l_448.pth",
+  "num_classes": 80,
+  "workers": 8,
+  "image_size": 448,
+  "batch_size": 192,
+  "print_freq": 64,
+  "distributed": true,
+  "output": "log/coco_tresl_2e-4",
+  "world_size": 8,
+  "rank": 0,
+  "local_rank": 0,
+  "do_bottleneck_head": false,
+  "device": "cuda:0",
+  "dtgfl": true
+}
