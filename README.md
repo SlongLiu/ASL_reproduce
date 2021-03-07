@@ -1,23 +1,6 @@
-# Reproduce *Asymmetric Loss For Multi-Label Classification*
 original repo: https://github.com/Alibaba-MIIL/ASL
 
 
-This repo add a multi GPU training script with some functions needed.
-
-train a model distributed:
-```
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
-  python -m torch.distributed.launch --nproc_per_node=8 \
-  train_dist.py /data/shilong/data/coco14 \
-  -b 192 --distributed \
-  --output log/coco_tresl_2e-4 \
-  --lr 2e-4 \
-  --model-name tresnet_l \
-  --model-path /path/to/pretrained/model \
-  --dtgfl
-```
-
-A training log is provided in `log/coco_tresl_2e-4`, in which experiment we achieved `85.5` mAP in MS-COCO with the size 448*448.
 
 ---
 **Below is the original README.txt**
